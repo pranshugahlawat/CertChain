@@ -6,8 +6,8 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Scaffold-ETH 2 App",
-  description: "Built with 🏗 Scaffold-ETH 2",
+  title: "CertChain",
+  description: "Soulbound Certificates for Instant, Tamper Proof Academic Credential Verification On Chain. Built with ❤️ By Pranshu Gahlawat",
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
@@ -15,7 +15,9 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
     <html suppressHydrationWarning>
       <body>
         <ThemeProvider enableSystem>
-          <ScaffoldEthAppWithProviders>{children}</ScaffoldEthAppWithProviders>
+          <ScaffoldEthAppWithProviders><div className="min-h-screen flex flex-col">
+  <main className="flex-1">{children}</main>
+</div></ScaffoldEthAppWithProviders>
         </ThemeProvider>
       </body>
     </html>
@@ -23,3 +25,4 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default ScaffoldEthApp;
+
