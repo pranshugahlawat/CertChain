@@ -11,6 +11,8 @@ import { useScaffoldReadContract, useScaffoldWriteContract, useTargetNetwork } f
 const useReadAny = useScaffoldReadContract as any;
 const useWriteAny = useScaffoldWriteContract as any;
 
+type PinnedFile = { cid: string; name?: string; mime?: string; size?: number };
+
 export default function IssuerPage() {
   const { address: connectedAddress } = useAccount();
   const { targetNetwork } = useTargetNetwork();
@@ -18,6 +20,10 @@ export default function IssuerPage() {
   const [student, setStudent] = useState("");
   const [cid, setCid] = useState("");
   const [revokeTokenId, setRevokeTokenId] = useState("");
+
+  // NEW: optional upload
+  const [file, setFile] = useState<File | null>(null);
+  const [mintStatus, setMintStatus] = useState<string>("");
 
   const studentOk = useMemo(() => isAddress(student), [student]);
 
@@ -47,6 +53,29 @@ export default function IssuerPage() {
   const { writeContractAsync, isMining } = useWriteAny({
     contractName: "SoulboundCert",
   });
+
+  async function pinFileToIpfs(selected: File): Promise<PinnedFile> {
+    const fd = new FormData();
+    fd.append("file", selected);
+
+    const res = await fetch("/api/pin-file", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error ? JSON.stringify(data.error) : "pin-file failed");
+
+    return data as PinnedFile; // { cid: "bafy..." }
+  }
+
+  async function pinJsonToIpfs(json: any): Promise<string> {
+    const res = await fetch("/api/pin-json", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(json),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error ? JSON.stringify(data.error) : "pin-json failed");
+
+    return data.cid as string; // metadata CID
+  }
 
   return (
     <div className="p-6 max-w-xl mx-auto flex flex-col gap-4">
@@ -82,23 +111,76 @@ export default function IssuerPage() {
 
         <input
           className="input input-bordered w-full"
-          placeholder="IPFS CID (bafy...)"
+          placeholder="IPFS Metadata CID (bafy...) (optional if uploading file below)"
           value={cid}
           onChange={e => setCid(e.target.value)}
         />
 
+        {/* NEW: file upload (optional) */}
+        <div className="mt-3">
+          <div className="text-sm opacity-70 mb-1">Upload proof (PDF/Image/Text) (optional)</div>
+          <input
+            className="file-input file-input-bordered w-full"
+            type="file"
+            accept="application/pdf,image/*,text/plain"
+            onChange={e => setFile(e.target.files?.[0] ?? null)}
+          />
+          {file ? (
+            <div className="text-xs opacity-70 mt-1">
+              Selected: {file.name} ({file.type || "unknown"}) {Math.round(file.size / 1024)} KB
+            </div>
+          ) : null}
+        </div>
+
         <button
           className="btn btn-primary w-full mt-3"
-          disabled={!issuerStatus || !studentOk || !cid.trim() || !metadataHash || isMining}
+          disabled={!issuerStatus || !studentOk || isMining || (!cid.trim() && !file)}
           onClick={async () => {
-            await writeContractAsync({
-              functionName: "mint",
-              args: [student, cid.trim(), metadataHash],
-            });
-            setCid("");
+            try {
+              setMintStatus("");
+
+              let cidToMint = cid.trim();
+
+              // If a file is selected, generate metadata CID automatically
+              if (file) {
+                setMintStatus("Uploading file to IPFS...");
+                const pinned = await pinFileToIpfs(file);
+
+                setMintStatus("Pinning metadata JSON...");
+                const metadata = {
+                  app: "CertChain",
+                  type: "AcademicCredential",
+                  student: { address: student },
+                  issuer: { address: connectedAddress },
+                  attachment: {
+                    uri: `ipfs://${pinned.cid}`,
+                    name: pinned.name ?? file.name,
+                    mime: pinned.mime ?? file.type,
+                    size: pinned.size ?? file.size,
+                  },
+                  issuedAt: new Date().toISOString(),
+                };
+
+                cidToMint = await pinJsonToIpfs(metadata);
+                setCid(cidToMint); // show it in the input for transparency
+              }
+
+              const hashToMint = keccak256(stringToHex(cidToMint));
+
+              setMintStatus("Minting on-chain...");
+              await writeContractAsync({
+                functionName: "mint",
+                args: [student, cidToMint, hashToMint],
+              });
+
+              setMintStatus("Minted ✅");
+              setFile(null);
+            } catch (err: any) {
+              setMintStatus(`Error: ${err?.message ?? String(err)}`);
+            }
           }}
         >
-          {isMining ? "Working..." : "Mint"}
+          {isMining ? "Working..." : file ? "Upload + Mint" : "Mint"}
         </button>
 
         {latestId !== undefined && (
@@ -106,6 +188,8 @@ export default function IssuerPage() {
             Latest token for this student: <span className="font-bold">#{latestId.toString()}</span>
           </div>
         )}
+
+        {mintStatus ? <div className="mt-3 text-sm break-words">{mintStatus}</div> : null}
       </div>
 
       <div className="bg-base-200 rounded-xl p-4">

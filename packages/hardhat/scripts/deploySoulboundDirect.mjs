@@ -11,6 +11,7 @@ const artifactPath = path.join(
   "SoulboundCert.json"
 );
 
+
 const { abi, bytecode } = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 
 const alchemyKey = (process.env.ALCHEMY_API_KEY ?? "").trim();
@@ -23,9 +24,11 @@ if (!alchemyKey) {
   throw new Error("Missing ALCHEMY_API_KEY in packages/hardhat/.env");
 }
 
-const rpcUrl = process.env.RPC_URL?.trim() || "http://127.0.0.1:8545";
+const rpcUrl = (process.env.RPC_URL ?? "").trim();
+if (!rpcUrl) throw new Error("Missing RPC_URL in packages/hardhat/.env");
+const isSepolia = rpcUrl.includes("sepolia");
 
-const provider = new ethers.JsonRpcProvider(rpcUrl);
+const provider = new ethers.JsonRpcProvider(rpcUrl, { name: "sepolia", chainId: 11155111 });
 const wallet = new ethers.Wallet(pk, provider);
 
 console.log("Deployer:", wallet.address);

@@ -1,10 +1,9 @@
 import "dotenv/config";
 import { spawn } from "child_process";
-import { etherscanApiKey } from "../hardhat.config.js";
 
-/**
- * Forwards `yarn verify --network <name> [args]` to the rocketh-verify CLI.
- */
+const etherscanApiKey = process.env.ETHERSCAN_API_KEY || "";
+
+
 async function main() {
   const argv = process.argv.slice(2);
 
