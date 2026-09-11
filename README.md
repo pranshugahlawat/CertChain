@@ -1,6 +1,6 @@
 # CertChain — Soulbound Credential Verification
 
-Built with ♥ by [Pranshu Gahlawat](https://github.com/pranshugahlawat)
+Built with ♥ by [Pranshu Gahlawat] (https://github.com/pranshugahlawat)
 
 ## Problem (Hackblox Web3 PS2)
 Fake degrees and certificates are common and verification is slow in Web2 (emails, manual checks). The goal is instant, tamper‑proof verification of academic credentials on-chain.
